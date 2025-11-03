@@ -14,6 +14,9 @@ module.exports = function (router) {
         })
         .post(async (req, res) => {
             try {
+                const { name, email } = req.body;
+                if (!name || !email) return res.status(400).json({ message: 'Name and email are required.' });
+
                 const user = new User(req.body);
                 await user.save();
                 res.status(201).json({data: user});
@@ -26,7 +29,7 @@ module.exports = function (router) {
     router.route('/users/:id')
         .get(async (req, res) => {
             try {
-                const user = await User.findById(req.params.id);
+                const user = await User.findById({ _id: req.params.id });
                 if (!user) {
                     res.status(404).json({ error: 'Task not found' });
                 }
@@ -40,7 +43,10 @@ module.exports = function (router) {
         })
         .put(async (req, res) => {
             try {
-                const user = await User.findById(req.params.id);
+                const { name, email } = req.body;
+                if (!name || !email) return res.status(400).json({ message: 'Name and email are required.' });
+                
+                const user = await User.findById({ _id: req.params.id });
                 if (!user) {
                     res.status(404).json({ error: 'Task not found' });
                 }
@@ -56,7 +62,7 @@ module.exports = function (router) {
         })
         .delete(async (req, res) => {
             try {
-                const user = await User.findByIdAndDelete(req.params.id);
+                const user = await User.findByIdAndDelete({ _id: req.params.id });
                 if (!user) {
                     res.status(404).json({ error: 'User not found' });
                 }

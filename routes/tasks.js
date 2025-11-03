@@ -14,6 +14,9 @@ module.exports = function (router) {
         })
         .post(async (req, res) => {
             try {
+                const { name, deadline } = req.body;
+                if (!name || !deadline) return res.status(400).json({ message: 'Name and deadline are required.' });
+
                 const task = new Task(req.body);
                 await task.save();
                 res.status(201).json({data: task});
@@ -41,6 +44,9 @@ module.exports = function (router) {
         })
         .put(async (req, res) => {
             try {
+                const { name, deadline } = req.body;
+                if (!name || !deadline) return res.status(400).json({ message: 'Name and deadline are required.' });
+
                 const task = await Task.findById(req.params.id);
                 if (!task) {
                     res.status(404).json({ error: 'Task not found' });
