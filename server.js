@@ -19,7 +19,7 @@ mongoose
         useNewUrlParser: true,
         useUnifiedTopology: true
     })
-    .then(() => console.log('✅Connected to MongoDB'))
+    .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
 
 // Allow CORS so that backend and frontend could be put on different servers

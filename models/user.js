@@ -16,14 +16,23 @@ var UserSchema = new mongoose.Schema({
 
 UserSchema.pre('save', async function (next) {
     try {
-        const Task = require("./task");
-        if (this.isModified('name') && this.pendingTasks.length > 0) {
-            const taskIds = this.pendingTasks.map(id => new mongoose.Types.ObjectId(id));
-            await Task.updateMany(
-                { _id: { $in: taskIds } },
-                { $set: { assignedUserName: this.name } }
-            );
+        if (this.__updateFromTask) {
+            return next();
         }
+
+        const Task = require("./task");
+        const taskIds = this.pendingTasks.map(id => new mongoose.Types.ObjectId(id));
+        const tasks = await Task.find({ _id: { $in: taskIds } });
+
+        for (const task of tasks) {
+            if (task.assignedUser !== this._id.toString()) {
+                task.assignedUser = this._id.toString();
+                task.assignedUserName = this.name;
+                task.__updateFromUser = true;
+                await task.save();
+            }
+        }
+
         next();
     } catch (err) {
         next(err);
@@ -33,10 +42,18 @@ UserSchema.pre('save', async function (next) {
 UserSchema.pre('deleteOne', { document: true, query: false }, async function (next) {
     try {
         const Task = require("./task");
-        await Task.updateMany(
-            { assignedUser: this._id.toString() },
-            { $set: { assignedUser: '', assignedUserName: 'unassigned' } }
-        );
+        const taskIds = this.pendingTasks.map(id => new mongoose.Types.ObjectId(id));
+        const tasks = await Task.find({ _id: { $in: taskIds } });
+
+        for (const task of tasks) {
+            if (task.assignedUser !== this._id.toString()) {
+                task.assignedUser = '';
+                task.assignedUserName = 'unassigned';
+                task.__updateFromUser = true;
+                await task.save();
+            }
+        }
+
         next();
     } catch (err) {
         next(err);

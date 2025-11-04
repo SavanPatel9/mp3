@@ -23,48 +23,60 @@ var TaskSchema = new mongoose.Schema({
 });
 
 TaskSchema.pre('save', async function (next) {
-    const User = require("./user");
-    // Find existing task (if this is an update)
-    if (this._id) {
-        const existing = await this.constructor.findById(this._id);
-        if (existing && existing.assignedUser && existing.assignedUser !== this.assignedUser) {
-            // Remove from old user's pendingTasks
-            await User.findByIdAndUpdate(existing.assignedUser, { $pull: { pendingTasks: this._id.toString() } });
+    try {
+        if (this.__updateFromUser) {
+            return next();
         }
-    }
 
-    // Update assignedUserName
-    if (this.assignedUser) {
-        const user = await User.findById(this.assignedUser);
-        if (user) this.assignedUserName = user.name;
-        else {
-            this.assignedUser = '';
-            this.assignedUserName = 'unassigned';
-        }
-    } else {
-        this.assignedUserName = 'unassigned';
-    }
-
-    next();
-});
-
-TaskSchema.post('save', async function (doc) {
-    if (doc.assignedUser) {
         const User = require("./user");
-        await User.findByIdAndUpdate(doc.assignedUser, {
-            $addToSet: { pendingTasks: doc._id.toString() }
-        });
+
+        if (this.isModified('assignedUser')) {
+            const existing = await this.constructor.findById(this._id);
+            if (existing && existing.assignedUser && existing.assignedUser !== '') {
+                const oldUser = await User.findById(existing.assignedUser);
+                if (oldUser) {
+                    oldUser.pendingTasks = oldUser.pendingTasks.filter(
+                        t => t !== this._id.toString()
+                    );
+                    oldUser.__updateFromTask = true;
+                    await oldUser.save();
+                }
+            }
+
+            if (this.assignedUser !== '') {
+                const newUser = await User.findById(this.assignedUser);
+                if (newUser && !newUser.pendingTasks.includes(this._id.toString())) {
+                    newUser.pendingTasks.push(this._id.toString());
+                    newUser.__updateFromTask = true;
+                    await newUser.save();
+                }
+            }
+        }
+
+        next();
+    }
+    catch (err) {
+        next(err);
     }
 });
 
 TaskSchema.pre('deleteOne', { document: true, query: false }, async function (next) {
-    if (this.assignedUser) {
-        const User = require("./user");
-        await User.findByIdAndUpdate(this.assignedUser, {
-            $pull: { pendingTasks: this._id.toString() }
-        });
+    try {
+        if (this.assignedUser !== '') {
+            const User = require('./user');
+            const user = await User.findById(this.assignedUser);
+            if (user) {
+                user.pendingTasks = user.pendingTasks.filter(
+                    id => id.toString() !== this._id.toString()
+                );
+                user.__updateFromTask = true;
+                await user.save();
+            }
+        }
+        next();
+    } catch (err) {
+        next(err);
     }
-    next();
 });
 
 // Export the Mongoose model
