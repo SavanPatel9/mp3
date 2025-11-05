@@ -43,13 +43,24 @@ TaskSchema.pre('save', async function (next) {
                 }
             }
 
-            if (this.assignedUser !== '') {
+            if (this.assignedUser !== '' && !this.completed) {
                 const newUser = await User.findById(this.assignedUser);
                 if (newUser && !newUser.pendingTasks.includes(this._id.toString())) {
                     newUser.pendingTasks.push(this._id.toString());
                     newUser.__updateFromTask = true;
                     await newUser.save();
                 }
+            }
+        }
+
+        if (this.completed && this.assignedUser) {
+            const user = await User.findById(this.assignedUser);
+            if (user) {
+                user.pendingTasks = user.pendingTasks.filter(
+                    t => t !== this._id.toString()
+                );
+                user.__updateFromTask = true;
+                await user.save();
             }
         }
 

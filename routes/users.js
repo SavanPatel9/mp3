@@ -1,4 +1,5 @@
 const User = require('../models/user')
+const Task = require('../models/task')
 
 module.exports = function (router) {
 
@@ -9,7 +10,7 @@ module.exports = function (router) {
                 let sort = {};
                 let select = {};
                 let skip = 0;
-                let limit = 100;
+                let limit = Infinity;
                 let count = false;
 
                 if (req.query.where) {
@@ -59,10 +60,30 @@ module.exports = function (router) {
         })
         .post(async (req, res) => {
             try {
-                const { name, email } = req.body;
+                const { name, email, pendingTasks = [] } = req.body;
                 if (!name || !email) return res.status(400).json({ message: 'Name and email are required.', data: null});
+                
+                const existingUser = await User.findOne({ email });
+                if (existingUser) {
+                    return res.status(400).json({ message: "A user with this email already exists.", data: null });
+                }
 
-                const user = new User(req.body);
+                if (pendingTasks.length > 0) {
+                    const Task = require('../models/task');
+                    const existingTasks = await Task.find({ _id: { $in: pendingTasks } });
+                    if (existingTasks.length !== pendingTasks.length) {
+                        return res.status(400).json({
+                            message: "One or more provided task IDs do not exist.",
+                            data: null
+                        });
+                    }
+                }
+
+                const data = {...req.body};
+
+                delete data.dateCreated;
+
+                const user = new User(data);
                 await user.save();
                 res.status(201).json({
                     message: "User Created.",
@@ -105,11 +126,31 @@ module.exports = function (router) {
         })
         .put(async (req, res) => {
             try {
-                const { name, email } = req.body;
+                const { name, email, pendingTasks = [] } = req.body;
                 if (!name || !email) return res.status(400).json({ message: 'Name and email are required.', data: null});
                 
+                const existingUser = await User.findOne({ email });
+                if (existingUser) {
+                    return res.status(400).json({ message: "A user with this email already exists.", data: null });
+                }
+
                 const user = await User.findById(req.params.id);
                 if (!user) return res.status(404).json({ message: 'User not found', data: null });
+
+                if (pendingTasks.length > 0) {
+                    const Task = require('../models/task');
+                    const existingTasks = await Task.find({ _id: { $in: pendingTasks } });
+                    if (existingTasks.length !== pendingTasks.length) {
+                        return res.status(400).json({
+                            message: "One or more provided task IDs do not exist.",
+                            data: null
+                        });
+                    }
+                }
+
+                const data = {...req.body};
+
+                delete data.dateCreated;
 
                 Object.assign(user, data);
                 await user.save();

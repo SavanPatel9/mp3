@@ -43,7 +43,7 @@ UserSchema.pre('save', async function (next) {
         if (removedTaskIds.length > 0) {
             const oldTasks = await Task.find({ _id: { $in: removedTaskIds } });
             for (const task of oldTasks) {
-                if (task.assignedUser === this._id.toString()) {
+                if (!task.completed && task.assignedUser === this._id.toString()) {
                     task.assignedUser = '';
                     task.assignedUserName = 'unassigned';
                     task.__updateFromUser = true;
@@ -56,7 +56,7 @@ UserSchema.pre('save', async function (next) {
         if (addedTaskIds.length > 0) {
             const newTasks = await Task.find({ _id: { $in: addedTaskIds } });
             for (const task of newTasks) {
-                if (task.assignedUser !== this._id.toString()) {
+                if (!task.completed && task.assignedUser !== this._id.toString()) {
                     task.assignedUser = this._id.toString();
                     task.assignedUserName = this.name;
                     task.__updateFromUser = true;
